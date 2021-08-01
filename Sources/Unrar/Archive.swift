@@ -187,6 +187,46 @@ public class Archive {
             throw UnrarError.unknown
         }
     }
+    
+    public func extractToFile() throws -> Bool {
+        
+        var flags = RAROpenArchiveDataEx()
+        flags.OpenMode = UInt32(RAR_OM_LIST)
+        flags.CmtBuf = nil
+        flags.CmtBufW = nil
+        flags.CmtBufSize = 0
+        
+        guard let data = Archive.open(fileURL: self.fileURL, password: self.password, flags: &flags) else {
+            throw UnrarError.badArchive
+        }
+        defer {
+            RARCloseArchive(data)
+        }
+        if flags.OpenResult != ERAR_SUCCESS {
+            throw UnrarError.badArchive
+        }
+
+        var header = RARHeaderDataEx()
+        while RARReadHeaderEx(data, &header) == 0 {
+
+            let destPath = "//Users//Anthony//Desktop//".toUnsafeMutablePointer()
+            let destName = "Hello.avi".toUnsafeMutablePointer()
+            
+                if RARProcessFile(data, RAR_EXTRACT, destPath, destName) != 0 {
+                    RARCloseArchive(data)
+                    return false;
+                }
+            
+                
+            
+
+        }
+
+        RARCloseArchive(data)
+
+
+        return true
+    }
 
     private static func open(fileURL: URL, password: String?, flags: inout RAROpenArchiveDataEx) -> UnsafeMutableRawPointer? {
         let ptr = fileURL.path.utf8CString.withUnsafeBufferPointer({ (ptr) -> UnsafeMutableRawPointer? in
@@ -201,3 +241,30 @@ public class Archive {
         return ptr
     }
 }
+
+extension String {
+    func toUnsafePointer() -> UnsafePointer<UInt8>? {
+        guard let data = self.data(using: .utf8) else {
+            return nil
+        }
+
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: data.count)
+        let stream = OutputStream(toBuffer: buffer, capacity: data.count)
+        stream.open()
+        let value = data.withUnsafeBytes {
+            $0.baseAddress?.assumingMemoryBound(to: UInt8.self)
+        }
+        guard let val = value else {
+            return nil
+        }
+        stream.write(val, maxLength: data.count)
+        stream.close()
+
+        return UnsafePointer<UInt8>(buffer)
+    }
+
+    func toUnsafeMutablePointer() -> UnsafeMutablePointer<Int8>? {
+        return strdup(self)
+    }
+}
+
